@@ -3416,6 +3416,380 @@ def calc_prob_backtest_overfitting(trial_returns, n_blocks=16, metric=None, full
     return pbo
 
 
+_VAR_BACKTEST_TESTS = ("kupiec", "independence", "conditional_coverage", "traffic_light")
+
+
+def calc_var_exceptions(returns, var):
+    """
+    Indicator of days on which the realized loss exceeded a reported Value-at-Risk.
+
+    This is the input the other VaR backtest functions in this module expect:
+    pass the result to :func:`calc_kupiec_pof`, :func:`calc_christoffersen_independence`,
+    :func:`calc_christoffersen_conditional_coverage`, :func:`calc_basel_traffic_light`
+    or :func:`calc_max_undetectable_var_understatement`.
+
+    Args:
+        * returns (Series): Realized returns (or P&L); positive values are gains.
+        * var (Series, float): Reported VaR, expressed as a positive loss
+            magnitude, aligned with `returns`. A scalar is broadcast.
+
+    Returns:
+        * Series -- boolean exception indicator, True where the loss exceeded
+          the reported VaR (``-returns > var``).
+
+    """
+    return (-returns) > var
+
+
+def _var_backtest_hits(hits):
+    arr = np.asarray(hits)
+    if arr.ndim != 1 or arr.size == 0:
+        raise ValueError("hits must be a non-empty one-dimensional sequence")
+    if arr.dtype != bool and not np.all((arr == 0) | (arr == 1)):
+        raise ValueError("hits must be boolean or contain only 0 and 1")
+    return arr.astype(bool)
+
+
+def _var_backtest_bernoulli_loglik(count, nobs, prob):
+    # 0 * log(0) is taken to be 0; the two degenerate terms are handled
+    # directly rather than pulling in scipy.special.xlogy for one call site.
+    loglik = 0.0
+    if count > 0:
+        loglik += count * np.log(prob)
+    if nobs - count > 0:
+        loglik += (nobs - count) * np.log1p(-prob)
+    return float(loglik)
+
+
+def _var_backtest_kupiec_lr(hits, prob):
+    nobs = hits.shape[0]
+    count = int(hits.sum())
+    phat = count / nobs
+    lr = -2.0 * (_var_backtest_bernoulli_loglik(count, nobs, prob) - _var_backtest_bernoulli_loglik(count, nobs, phat))
+    return max(lr, 0.0)
+
+
+def _var_backtest_independence_lr(hits):
+    prev, cur = hits[:-1], hits[1:]
+    n00 = int(np.sum(~prev & ~cur))
+    n01 = int(np.sum(~prev & cur))
+    n10 = int(np.sum(prev & ~cur))
+    n11 = int(np.sum(prev & cur))
+    total = n00 + n01 + n10 + n11
+    if total == 0:
+        return 0.0
+    pi = (n01 + n11) / total
+    ll_null = _var_backtest_bernoulli_loglik(n01 + n11, total, pi)
+    ll_alt = 0.0
+    if n00 + n01 > 0:
+        ll_alt += _var_backtest_bernoulli_loglik(n01, n00 + n01, n01 / (n00 + n01))
+    if n10 + n11 > 0:
+        ll_alt += _var_backtest_bernoulli_loglik(n11, n10 + n11, n11 / (n10 + n11))
+    return max(-2.0 * (ll_null - ll_alt), 0.0)
+
+
+def calc_kupiec_pof(hits, prob=0.01, full_output=False):
+    r"""
+    Kupiec's `proportion-of-failures <https://doi.org/10.3905/jod.1995.407942>`_
+    (unconditional coverage) test of a VaR exception series.
+
+    Tests whether the exception rate in `hits` is consistent with the nominal
+    VaR probability `prob`, against a likelihood ratio distributed
+    :math:`\chi^2_1` under the null. The test is two-sided, so it also rejects
+    a VaR series with too few exceptions, not only too many.
+
+    Source: Kupiec, P. H. (1995), "Techniques for Verifying the Accuracy of
+    Risk Measurement Models", Journal of Derivatives, 3(2), 73-84.
+
+    Args:
+        * hits (Series, array-like): Boolean exception indicator, e.g. from
+            :func:`calc_var_exceptions`.
+        * prob (float): Nominal exception probability (0.01 for a 99% VaR).
+        * full_output (bool): If True, return a dict with the likelihood
+            ratio statistic and exception count in addition to the p-value.
+
+    Returns:
+        * float -- p-value of the likelihood ratio test, if `full_output` is
+            False (default).
+        * dict -- `{"pvalue", "statistic", "exceptions", "nobs"}` if
+            `full_output` is True.
+
+    """
+    if not 0.0 < prob < 1.0:
+        raise ValueError("prob must be strictly between 0 and 1")
+    arr = _var_backtest_hits(hits)
+    lr = _var_backtest_kupiec_lr(arr, prob)
+    pvalue = float(scipy.stats.chi2.sf(lr, df=1))
+    if full_output:
+        return {"pvalue": pvalue, "statistic": lr, "exceptions": int(arr.sum()), "nobs": int(arr.shape[0])}
+    return pvalue
+
+
+def calc_christoffersen_independence(hits, full_output=False):
+    r"""
+    Christoffersen's test that VaR exceptions are serially independent.
+
+    The alternative is a first-order Markov chain for the exception
+    indicator: a VaR model that clusters its breaches (several bad days in a
+    row) can still pass :func:`calc_kupiec_pof` if the total count is right.
+    The likelihood ratio is distributed :math:`\chi^2_1` under the null.
+
+    Source: Christoffersen, P. F. (1998), "Evaluating Interval Forecasts",
+    International Economic Review, 39(4), 841-862.
+
+    Args:
+        * hits (Series, array-like): Boolean exception indicator, e.g. from
+            :func:`calc_var_exceptions`.
+        * full_output (bool): If True, return a dict with the likelihood
+            ratio statistic in addition to the p-value.
+
+    Returns:
+        * float -- p-value of the likelihood ratio test, if `full_output` is
+            False (default).
+        * dict -- `{"pvalue", "statistic"}` if `full_output` is True.
+
+    """
+    arr = _var_backtest_hits(hits)
+    lr = _var_backtest_independence_lr(arr)
+    pvalue = float(scipy.stats.chi2.sf(lr, df=1))
+    if full_output:
+        return {"pvalue": pvalue, "statistic": lr}
+    return pvalue
+
+
+def calc_christoffersen_conditional_coverage(hits, prob=0.01, full_output=False):
+    r"""
+    Christoffersen's joint test of unconditional coverage and independence.
+
+    The statistic is the sum of the :func:`calc_kupiec_pof` likelihood ratio,
+    computed on all observations, and the :func:`calc_christoffersen_independence`
+    likelihood ratio, computed on the transitions, distributed
+    :math:`\chi^2_2` under the null that exceptions are independent with
+    probability `prob`.
+
+    Source: Christoffersen, P. F. (1998), "Evaluating Interval Forecasts",
+    International Economic Review, 39(4), 841-862.
+
+    Args:
+        * hits (Series, array-like): Boolean exception indicator, e.g. from
+            :func:`calc_var_exceptions`.
+        * prob (float): Nominal exception probability (0.01 for a 99% VaR).
+        * full_output (bool): If True, return a dict with the likelihood
+            ratio statistic in addition to the p-value.
+
+    Returns:
+        * float -- p-value of the likelihood ratio test, if `full_output` is
+            False (default).
+        * dict -- `{"pvalue", "statistic"}` if `full_output` is True.
+
+    """
+    if not 0.0 < prob < 1.0:
+        raise ValueError("prob must be strictly between 0 and 1")
+    arr = _var_backtest_hits(hits)
+    lr = _var_backtest_kupiec_lr(arr, prob) + _var_backtest_independence_lr(arr)
+    pvalue = float(scipy.stats.chi2.sf(lr, df=2))
+    if full_output:
+        return {"pvalue": pvalue, "statistic": lr}
+    return pvalue
+
+
+def calc_basel_traffic_light(hits, prob=0.01, window=250):
+    """
+    Basel Committee traffic light zone for a VaR exception series.
+
+    Classifies the exception count in the most recent `window` observations
+    as green, yellow or red, following the cumulative binomial probability
+    bands the Basel Committee uses to scale the capital multiplier in the
+    internal models approach.
+
+    Source: Basel Committee on Banking Supervision (1996), "Supervisory
+    Framework for the Use of 'Backtesting' in Conjunction with the Internal
+    Models Approach to Market Risk Capital Requirements", Table 2.
+
+    Args:
+        * hits (Series, array-like): Boolean exception indicator, e.g. from
+            :func:`calc_var_exceptions`.
+        * prob (float): Nominal exception probability (0.01 for a 99% VaR).
+        * window (int): Number of most recent observations to use. None uses
+            all observations. Defaults to 250 (about one trading year).
+
+    Returns:
+        * dict -- `{"zone", "exceptions", "nobs", "cumulative_probability"}`,
+            where `zone` is one of `"green"`, `"yellow"`, `"red"`.
+
+    """
+    if not 0.0 < prob < 1.0:
+        raise ValueError("prob must be strictly between 0 and 1")
+    arr = _var_backtest_hits(hits)
+    if window is not None:
+        if int(window) < 1:
+            raise ValueError("window must be positive or None")
+        arr = arr[-int(window) :]
+    nobs = arr.shape[0]
+    count = int(arr.sum())
+    cum_prob = float(scipy.stats.binom.cdf(count, nobs, prob))
+    if cum_prob >= 0.9999:
+        zone = "red"
+    elif cum_prob >= 0.95:
+        zone = "yellow"
+    else:
+        zone = "green"
+    return {"zone": zone, "exceptions": count, "nobs": nobs, "cumulative_probability": cum_prob}
+
+
+def _var_backtest_gate_failures(hits, prob, size, tests, ignore_too_few, window):
+    failed = []
+    if "kupiec" in tests:
+        lr = _var_backtest_kupiec_lr(hits, prob)
+        too_few = hits.mean() < prob
+        if lr > scipy.stats.chi2.ppf(1 - size, 1) and not (ignore_too_few and too_few):
+            failed.append("kupiec")
+    if "independence" in tests and _var_backtest_independence_lr(hits) > scipy.stats.chi2.ppf(1 - size, 1):
+        failed.append("independence")
+    if "conditional_coverage" in tests:
+        lr = _var_backtest_kupiec_lr(hits, prob) + _var_backtest_independence_lr(hits)
+        too_few = hits.mean() < prob
+        if lr > scipy.stats.chi2.ppf(1 - size, 2) and not (ignore_too_few and too_few):
+            failed.append("conditional_coverage")
+    if "traffic_light" in tests and calc_basel_traffic_light(hits, prob, window)["zone"] != "green":
+        failed.append("traffic_light")
+    return failed
+
+
+def calc_max_undetectable_var_understatement(
+    returns,
+    var,
+    prob=0.01,
+    size=0.05,
+    tests=_VAR_BACKTEST_TESTS,
+    ignore_too_few=True,
+    window=250,
+    full_output=False,
+):
+    """
+    Largest uniform understatement of a VaR series that still passes a chosen
+    backtest panel: the "Maximum Undetectable Lie" diagnostic.
+
+    A passing backtest only says that the reported VaR was not rejected; it
+    does not say how close it came to being rejected. This function answers
+    a constructive version of that question: by what uniform fraction could
+    the whole `var` series have been scaled down, against the same `returns`,
+    and still not have been rejected by any test in `tests`? A pass with a
+    2% margin and a pass with a 25% margin are not the same finding, even
+    though both backtests are "green".
+
+    Because every test in `tests` reads `var` only through its exception
+    indicator, the exception set for a proportional scaling `(1 - s) * var`
+    changes only at the breakpoints `s = 1 - loss / var`. The search evaluates
+    the panel once per breakpoint and is therefore exact for this family of
+    scalings; it is a lower bound on what a non-proportional (day-by-day)
+    rescaling could hide.
+
+    This is the test-power companion to :func:`calc_deflated_sharpe_ratio` and
+    :func:`calc_prob_backtest_overfitting`: those ask whether a *performance*
+    result would have survived the search that produced it; this asks
+    whether a *risk* result would have survived if it had actually been
+    worse than reported.
+
+    Source: Gupta, S., "The Maximum Undetectable Lie: Constructing the Worst
+    Value-at-Risk Series That a Backtest Panel Passes and the Limitations of
+    E-Backtesting", paper and reference implementation at
+    https://github.com/sarthakguptaquant/gaming-oracle.
+
+    Args:
+        * returns (Series): Realized returns (or P&L); positive values are
+            gains.
+        * var (Series): Reported VaR, a positive loss magnitude aligned with
+            `returns`. All values must be finite and strictly positive.
+        * prob (float): Nominal exception probability (0.01 for a 99% VaR).
+        * size (float): Size of each likelihood ratio test. Ignored by the
+            traffic light test, which uses the Basel bands instead.
+        * tests (tuple of str): Subset of `("kupiec", "independence",
+            "conditional_coverage", "traffic_light")` the reported VaR must
+            pass. All four by default.
+        * ignore_too_few (bool): If True (default), a Kupiec or conditional
+            coverage rejection caused by *too few* exceptions does not count
+            as a failure: fewer exceptions than expected is not evidence of
+            an understated VaR, so it should not block the search for one.
+        * window (int): Window used by the traffic light test. Defaults to
+            250.
+        * full_output (bool): If True, return a dict with the full
+            diagnostics in addition to the headline shrink fraction.
+
+    Returns:
+        * float -- `shrink`, the largest fraction by which `var` could be
+            scaled down and still pass every selected test, if `full_output`
+            is False (default). NaN if the reported `var` does not pass the
+            panel to begin with.
+        * dict -- `{"shrink", "mean_understatement", "exceptions_reported",
+            "exceptions_at_limit", "baseline_passes", "failed_at_baseline",
+            "binding", "var_at_limit"}` if `full_output` is True.
+            `failed_at_baseline` lists the tests the reported VaR itself
+            fails, if any. `binding` lists the tests that reject the next,
+            slightly smaller understatement beyond the limit. `var_at_limit`
+            is the `var` series scaled by `1 - shrink`.
+
+    """
+    ret = np.asarray(returns, dtype=float)
+    v = np.asarray(var, dtype=float)
+    if ret.shape != v.shape or ret.shape[0] == 0:
+        raise ValueError("returns and var must be non-empty and the same length")
+    if not np.all(np.isfinite(v)) or np.any(v <= 0.0):
+        raise ValueError("var must be finite and strictly positive")
+    if not 0.0 < prob < 1.0:
+        raise ValueError("prob must be strictly between 0 and 1")
+    if not 0.0 < size < 1.0:
+        raise ValueError("size must be strictly between 0 and 1")
+    selected = tuple(tests)
+    unknown = [test for test in selected if test not in _VAR_BACKTEST_TESTS]
+    if unknown or not selected:
+        raise ValueError(f"tests must be a non-empty subset of {_VAR_BACKTEST_TESTS}")
+
+    ratio = -ret / v  # an exception occurs where ratio > 1 - s
+    reported = ratio > 1.0
+    failed0 = _var_backtest_gate_failures(reported, prob, size, selected, ignore_too_few, window)
+    n_reported = int(reported.sum())
+    if failed0:
+        result = {
+            "shrink": float("nan"),
+            "mean_understatement": float("nan"),
+            "exceptions_reported": n_reported,
+            "exceptions_at_limit": n_reported,
+            "baseline_passes": False,
+            "failed_at_baseline": tuple(failed0),
+            "binding": tuple(failed0),
+            "var_at_limit": v.copy(),
+        }
+        return result if full_output else result["shrink"]
+
+    # The exception set is constant between breakpoints, so scanning them in
+    # decreasing order and stopping at the first pass finds the exact limit
+    # with one evaluation of the panel per breakpoint.
+    thresholds = np.unique(ratio[(ratio > 0.0) & (ratio < 1.0)])
+    candidates = [0.0, *thresholds.tolist(), 1.0]
+    limit_idx = len(candidates) - 1
+    for i, thr in enumerate(candidates[:-1]):
+        if not _var_backtest_gate_failures(ratio > thr, prob, size, selected, ignore_too_few, window):
+            limit_idx = i
+            break
+    limit = candidates[limit_idx]
+    binding = ()
+    if limit_idx > 0:
+        binding = tuple(_var_backtest_gate_failures(ratio > candidates[limit_idx - 1], prob, size, selected, ignore_too_few, window))
+    shrink = 1.0 - limit
+    result = {
+        "shrink": shrink,
+        "mean_understatement": float(shrink * v.mean()),
+        "exceptions_reported": n_reported,
+        "exceptions_at_limit": int((ratio > limit).sum()),
+        "baseline_passes": True,
+        "failed_at_baseline": (),
+        "binding": binding,
+        "var_at_limit": (limit * v).astype(float),
+    }
+    return result if full_output else result["shrink"]
+
+
 def resample_returns(returns, func, seed=0, num_trials=100):
     """
     Resample the returns and calculate any statistic on every new sample.
@@ -3518,6 +3892,12 @@ def extend_pandas():
     PandasObject.calc_sharpe_ratio = calc_sharpe
     PandasObject.calc_deflated_sharpe_ratio = calc_deflated_sharpe_ratio
     PandasObject.calc_prob_backtest_overfitting = calc_prob_backtest_overfitting
+    PandasObject.calc_var_exceptions = calc_var_exceptions
+    PandasObject.calc_kupiec_pof = calc_kupiec_pof
+    PandasObject.calc_christoffersen_independence = calc_christoffersen_independence
+    PandasObject.calc_christoffersen_conditional_coverage = calc_christoffersen_conditional_coverage
+    PandasObject.calc_basel_traffic_light = calc_basel_traffic_light
+    PandasObject.calc_max_undetectable_var_understatement = calc_max_undetectable_var_understatement
     PandasObject.to_excess_returns = to_excess_returns
     PandasObject.to_ulcer_index = to_ulcer_index
     PandasObject.to_ulcer_performance_index = to_ulcer_performance_index

@@ -30,7 +30,7 @@ def test_mtd_ytd(df):
     data = df["AAPL"]
 
     # Intramonth
-    prices = data[pd.to_datetime("2004-12-10"): pd.to_datetime("2004-12-25")]
+    prices = data[pd.to_datetime("2004-12-10") : pd.to_datetime("2004-12-25")]
     dp = prices.resample("D").last().dropna()
     mp = prices.resample(ffn.core._MonthEnd).last().dropna()
     yp = prices.resample(ffn.core._YearEnd).last().dropna()
@@ -41,7 +41,7 @@ def test_mtd_ytd(df):
     assert mtd_actual == ytd_actual
 
     # Year change - first month
-    prices = data[pd.to_datetime("2004-12-10"): pd.to_datetime("2005-01-15")]
+    prices = data[pd.to_datetime("2004-12-10") : pd.to_datetime("2005-01-15")]
     dp = prices.resample("D").last().dropna()
     mp = prices.resample(ffn.core._MonthEnd).last().dropna()
     yp = prices.resample(ffn.core._YearEnd).last().dropna()
@@ -52,7 +52,7 @@ def test_mtd_ytd(df):
     assert mtd_actual == ytd_actual
 
     # Year change - second month
-    prices = data[pd.to_datetime("2004-12-10"): pd.to_datetime("2005-02-15")]
+    prices = data[pd.to_datetime("2004-12-10") : pd.to_datetime("2005-02-15")]
     dp = prices.resample("D").last().dropna()
     mp = prices.resample(ffn.core._MonthEnd).last().dropna()
     yp = prices.resample(ffn.core._YearEnd).last().dropna()
@@ -575,12 +575,8 @@ def test_rebase_uses_each_columns_first_valid_price():
 def test_rebase_nullable_series_uses_first_valid_price():
     """Preserve nullable gaps while rebasing from the first observed price."""
     index = pd.date_range("2026-01-01", periods=4, freq="D")
-    prices = pd.Series(
-        [pd.NA, 50.0, 55.0, 60.5], index=index, dtype="Float64", name="asset"
-    )
-    expected = pd.Series(
-        [pd.NA, 100.0, 110.0, 121.0], index=index, dtype="Float64", name="asset"
-    )
+    prices = pd.Series([pd.NA, 50.0, 55.0, 60.5], index=index, dtype="Float64", name="asset")
+    expected = pd.Series([pd.NA, 100.0, 110.0, 121.0], index=index, dtype="Float64", name="asset")
 
     module_result = ffn.rebase(prices)
     method_result = prices.rebase()
@@ -1125,9 +1121,7 @@ def test_calc_erc_weights(df):
     aae(actual["MSFT"], 0.374, 3)
     aae(actual["C"], 0.356, 3)
 
-    actual = ffn.core.calc_erc_weights(
-        rets, covar_method="ledoit-wolf", risk_parity_method="slsqp", tolerance=1e-9
-    )
+    actual = ffn.core.calc_erc_weights(rets, covar_method="ledoit-wolf", risk_parity_method="slsqp", tolerance=1e-9)
 
     assert len(actual) == 3
     assert "AAPL" in actual
@@ -1138,9 +1132,7 @@ def test_calc_erc_weights(df):
     aae(actual["MSFT"], 0.374, 3)
     aae(actual["C"], 0.356, 3)
 
-    actual = ffn.core.calc_erc_weights(
-        rets, covar_method="standard", risk_parity_method="ccd", tolerance=1e-9
-    )
+    actual = ffn.core.calc_erc_weights(rets, covar_method="standard", risk_parity_method="ccd", tolerance=1e-9)
 
     assert len(actual) == 3
     assert "AAPL" in actual
@@ -1151,9 +1143,7 @@ def test_calc_erc_weights(df):
     aae(actual["MSFT"], 0.409, 3)
     aae(actual["C"], 0.356, 3)
 
-    actual = ffn.core.calc_erc_weights(
-        rets, covar_method="standard", risk_parity_method="slsqp", tolerance=1e-9
-    )
+    actual = ffn.core.calc_erc_weights(rets, covar_method="standard", risk_parity_method="slsqp", tolerance=1e-9)
 
     assert len(actual) == 3
     assert "AAPL" in actual
@@ -1574,16 +1564,12 @@ def test_get_num_days_required():
     actual = ffn.core.get_num_days_required(pd.DateOffset(months=3), perc_required=1.0)
     assert actual >= 60
 
-    actual = ffn.core.get_num_days_required(
-        pd.DateOffset(months=3), perc_required=1.0, period="m"
-    )
+    actual = ffn.core.get_num_days_required(pd.DateOffset(months=3), perc_required=1.0, period="m")
     assert actual >= 3
 
 
 def test_asfreq_actual():
-    a = pd.Series(
-        {pd.to_datetime("2010-02-27"): 100, pd.to_datetime("2010-03-25"): 200}
-    )
+    a = pd.Series({pd.to_datetime("2010-02-27"): 100, pd.to_datetime("2010-03-25"): 200})
     actual = a.asfreq_actual(freq=ffn.core._MonthEnd, method="ffill")
 
     assert len(actual) == 1
@@ -2398,8 +2384,7 @@ def test_random_weights():
     for i in df.index:
         df.loc[i] = ffn.random_weights(n, bounds, tot)
     assert df.sum(axis=1).apply(lambda x: np.round(x, 4) == tot).all()
-    assert (getattr(df, select_map)(lambda x: (x >= low and x <= high))
-            .all().all())
+    assert getattr(df, select_map)(lambda x: x >= low and x <= high).all().all()
 
     n = 4
     bounds = (0.0, 0.25)
@@ -2411,12 +2396,7 @@ def test_random_weights():
     for i in df.index:
         df.loc[i] = ffn.random_weights(n, bounds, tot)
     assert df.sum(axis=1).apply(lambda x: np.round(x, 4) == tot).all()
-    assert (
-        getattr(df, select_map)(lambda x: (np.round(x, 2) >= low
-                                           and np.round(x, 2) <= high))
-        .all()
-        .all()
-    )
+    assert getattr(df, select_map)(lambda x: np.round(x, 2) >= low and np.round(x, 2) <= high).all().all()
 
     n = 7
     bounds = (0.0, 0.25)
@@ -2428,12 +2408,7 @@ def test_random_weights():
     for i in df.index:
         df.loc[i] = ffn.random_weights(n, bounds, tot)
     assert df.sum(axis=1).apply(lambda x: np.round(x, 4) == tot).all()
-    assert (
-        getattr(df, select_map)(lambda x: (np.round(x, 2) >= low
-                                           and np.round(x, 2) <= high))
-        .all()
-        .all()
-    )
+    assert getattr(df, select_map)(lambda x: np.round(x, 2) >= low and np.round(x, 2) <= high).all().all()
 
     n = 10
     bounds = (-0.25, 0.25)
@@ -2445,12 +2420,7 @@ def test_random_weights():
     for i in df.index:
         df.loc[i] = ffn.random_weights(n, bounds, tot)
     assert df.sum(axis=1).apply(lambda x: np.round(x, 4) == tot).all()
-    assert (
-        getattr(df, select_map)(lambda x: (np.round(x, 2) >= low
-                                           and np.round(x, 2) <= high))
-        .all()
-        .all()
-    )
+    assert getattr(df, select_map)(lambda x: np.round(x, 2) >= low and np.round(x, 2) <= high).all().all()
 
 
 @fixture
@@ -3589,9 +3559,7 @@ def test_calc_sortino_ratio(df):
     er = r.to_excess_returns(rf, p)
     negative_returns = er.clip(upper=0.0)
     downside_deviation = np.sqrt((negative_returns**2).mean())
-    assert np.allclose(
-        a, (er.mean() - rf) / downside_deviation * np.sqrt(p)
-    )
+    assert np.allclose(a, (er.mean() - rf) / downside_deviation * np.sqrt(p))
 
 
 def test_calc_sortino_ratio_infers_periods_before_deannualizing_risk_free_rate():
@@ -3621,9 +3589,7 @@ def test_calc_sortino_ratio_infers_periods_before_deannualizing_risk_free_rate()
 
 def test_calc_sortino_ratio_requires_periods_for_uninferrable_scalar_rate():
     """Reject an annualized scalar rate when no period count can be inferred."""
-    returns = pd.Series(
-        [-0.02, 0.01, 0.03, -0.01], index=["a", "b", "c", "d"]
-    )
+    returns = pd.Series([-0.02, 0.01, 0.03, -0.01], index=["a", "b", "c", "d"])
 
     with np.testing.assert_raises(ValueError):
         ffn.calc_sortino_ratio(returns, rf=0.05)
@@ -3638,12 +3604,8 @@ def test_calc_sortino_ratio_is_order_invariant():
     negative_first = pd.Series([-0.10, 0.02, 0.01, 0.03], index=idx)
     negative_last = pd.Series([0.02, 0.01, 0.03, -0.10], index=idx)
 
-    assert np.isclose(
-        negative_first.calc_sortino_ratio(annualize=False), -0.2
-    )
-    assert np.isclose(
-        negative_last.calc_sortino_ratio(annualize=False), -0.2
-    )
+    assert np.isclose(negative_first.calc_sortino_ratio(annualize=False), -0.2)
+    assert np.isclose(negative_last.calc_sortino_ratio(annualize=False), -0.2)
 
 
 def test_calc_sortino_ratio_counts_first_period_downside():
@@ -3663,6 +3625,7 @@ def test_calc_sortino_ratio_ignores_leading_nan(df):
         r.calc_sortino_ratio(annualize=False),
         r[1:].calc_sortino_ratio(annualize=False),
     )
+
 
 def test_to_ulcer_index_is_in_percentage_points():
     # 100 -> 90 -> 100 has drawdowns of 0%, -10%, 0%, so the ulcer index is
@@ -4097,6 +4060,7 @@ def test_calc_prob_backtest_overfitting_preserves_native_scores(monkeypatch, cas
     elif case == "sparse":
         data = data.astype(pd.SparseDtype("float64", 0))
     elif case == "subclass":
+
         class ReversedStd(pd.DataFrame):
             @property
             def _constructor(self):
@@ -4148,6 +4112,7 @@ def test_calc_prob_backtest_overfitting_preserves_native_scores(monkeypatch, cas
 @mark.parametrize("method", [False, True])
 def test_calc_prob_backtest_overfitting_preserves_subclass_rank_normalization(method):
     """Native ranking normalizes masked subclass scores before selecting the winner's rank."""
+
     class MaskedScores(pd.Series):
         @property
         def _constructor(self):
@@ -4657,9 +4622,7 @@ def test_calc_deflated_sharpe_ratio_zero_dispersion():
     for value in (1e-7, 1e-4, 0.001, 0.01, 1.0, 100.0):
         for n in (3, 10, 250, 5000):
             flat = pd.Series([value] * n)
-            assert np.isnan(
-                ffn.calc_deflated_sharpe_ratio(flat, sharpes)
-            ), f"leaked at value={value}, n={n}"
+            assert np.isnan(ffn.calc_deflated_sharpe_ratio(flat, sharpes)), f"leaked at value={value}, n={n}"
     assert np.isnan(ffn.calc_deflated_sharpe_ratio(pd.Series([0.0] * 250), sharpes))
 
     # The guard is relative to the scale of the data: a real but very quiet series
@@ -5156,9 +5119,7 @@ def test_set_riskfree_rate(df):
     monthly_returns = df["MSFT"].resample(ffn.core._MonthEnd).last().pct_change()
     aae(
         performanceStats.monthly_sharpe,
-        monthly_returns.dropna().mean()
-        / (monthly_returns.dropna().std())
-        * (np.sqrt(12)),
+        monthly_returns.dropna().mean() / (monthly_returns.dropna().std()) * (np.sqrt(12)),
         3,
     )
     aae(performanceStats.monthly_sharpe, groupStats["MSFT"].monthly_sharpe, 3)
@@ -5177,9 +5138,7 @@ def test_set_riskfree_rate(df):
     daily_returns = df["MSFT"].pct_change()
     aae(
         performanceStats.daily_sharpe,
-        np.mean(daily_returns.dropna() - 0.02 / 252)
-        / (daily_returns.dropna().std())
-        * (np.sqrt(252)),
+        np.mean(daily_returns.dropna() - 0.02 / 252) / (daily_returns.dropna().std()) * (np.sqrt(252)),
         3,
     )
     aae(performanceStats.daily_sharpe, groupStats["MSFT"].daily_sharpe, 3)
@@ -5187,9 +5146,7 @@ def test_set_riskfree_rate(df):
     monthly_returns = df["MSFT"].resample(ffn.core._MonthEnd).last().pct_change()
     aae(
         performanceStats.monthly_sharpe,
-        np.mean(monthly_returns.dropna() - 0.02 / 12)
-        / (monthly_returns.dropna().std())
-        * (np.sqrt(12)),
+        np.mean(monthly_returns.dropna() - 0.02 / 12) / (monthly_returns.dropna().std()) * (np.sqrt(12)),
         3,
     )
     aae(performanceStats.monthly_sharpe, groupStats["MSFT"].monthly_sharpe, 3)
@@ -5197,9 +5154,7 @@ def test_set_riskfree_rate(df):
     yearly_returns = df["MSFT"].resample(ffn.core._YearEnd).last().pct_change()
     aae(
         performanceStats.yearly_sharpe,
-        np.mean(yearly_returns.dropna() - 0.02 / 1)
-        / (yearly_returns.dropna().std())
-        * (np.sqrt(1)),
+        np.mean(yearly_returns.dropna() - 0.02 / 1) / (yearly_returns.dropna().std()) * (np.sqrt(1)),
         3,
     )
     aae(performanceStats.yearly_sharpe, groupStats["MSFT"].yearly_sharpe, 3)
@@ -5218,9 +5173,7 @@ def test_set_riskfree_rate(df):
     rf_daily_returns = rf.pct_change()
     aae(
         performanceStats.daily_sharpe,
-        np.mean(daily_returns - rf_daily_returns)
-        / (daily_returns.dropna().std())
-        * (np.sqrt(252)),
+        np.mean(daily_returns - rf_daily_returns) / (daily_returns.dropna().std()) * (np.sqrt(252)),
         3,
     )
     aae(performanceStats.daily_sharpe, groupStats["MSFT"].daily_sharpe, 3)
@@ -5229,9 +5182,7 @@ def test_set_riskfree_rate(df):
     rf_monthly_returns = rf.resample(ffn.core._MonthEnd).last().pct_change()
     aae(
         performanceStats.monthly_sharpe,
-        np.mean(monthly_returns - rf_monthly_returns)
-        / (monthly_returns.dropna().std())
-        * (np.sqrt(12)),
+        np.mean(monthly_returns - rf_monthly_returns) / (monthly_returns.dropna().std()) * (np.sqrt(12)),
         3,
     )
     aae(performanceStats.monthly_sharpe, groupStats["MSFT"].monthly_sharpe, 3)
@@ -5240,9 +5191,7 @@ def test_set_riskfree_rate(df):
     rf_yearly_returns = rf.resample(ffn.core._YearEnd).last().pct_change()
     aae(
         performanceStats.yearly_sharpe,
-        np.mean(yearly_returns - rf_yearly_returns)
-        / (yearly_returns.dropna().std())
-        * (np.sqrt(1)),
+        np.mean(yearly_returns - rf_yearly_returns) / (yearly_returns.dropna().std()) * (np.sqrt(1)),
         3,
     )
     aae(performanceStats.yearly_sharpe, groupStats["MSFT"].yearly_sharpe, 3)
@@ -6027,7 +5976,7 @@ def test_single_price_updates_clear_derived_returns(update, intraday, dtype):
         stats.set_date_range(dates[-1].normalize(), dates[-1])
     else:
         # Prices are retained by reference: an RF update must also handle a feed losing observations.
-        stats.prices.iloc[:3 if intraday else 4] = np.nan
+        stats.prices.iloc[: 3 if intraday else 4] = np.nan
         owner = group if group is not None else stats
         owner.set_riskfree_rate(0.03)
     selected = stats.prices.copy()
@@ -6197,12 +6146,8 @@ def test_group_stats_uses_each_series_own_calendar():
     # other series' individual stats
     dates = pd.date_range("2020-01-31", periods=24, freq=ffn.core._MonthEnd)
     np.random.seed(1)
-    sym1 = pd.Series(
-        100 * np.cumprod(1 + np.random.normal(0.01, 0.04, 24)), index=dates, name="SYM1"
-    )
-    sym2 = pd.Series(
-        100 * np.cumprod(1 + np.random.normal(0.01, 0.04, 24)), index=dates, name="SYM2"
-    )
+    sym1 = pd.Series(100 * np.cumprod(1 + np.random.normal(0.01, 0.04, 24)), index=dates, name="SYM1")
+    sym2 = pd.Series(100 * np.cumprod(1 + np.random.normal(0.01, 0.04, 24)), index=dates, name="SYM2")
     # SYM2 missing for three months in the middle
     sym2.iloc[9:12] = np.nan
 
@@ -6211,9 +6156,7 @@ def test_group_stats_uses_each_series_own_calendar():
     # per-series stats match the single-series result
     aae(gs["SYM1"].monthly_sharpe, ffn.PerformanceStats(sym1).monthly_sharpe, 9)
     aae(gs["SYM1"].total_return, ffn.PerformanceStats(sym1).total_return, 9)
-    aae(
-        gs["SYM2"].monthly_sharpe, ffn.PerformanceStats(sym2.dropna()).monthly_sharpe, 9
-    )
+    aae(gs["SYM2"].monthly_sharpe, ffn.PerformanceStats(sym2.dropna()).monthly_sharpe, 9)
 
     # SYM1 keeps all of its own dates
     assert len(gs["SYM1"].prices) == 24
@@ -6225,7 +6168,7 @@ def test_group_stats_uses_each_series_own_calendar():
     gs.set_date_range(start=dates[3])
     aae(
         gs["SYM1"].monthly_sharpe,
-        ffn.PerformanceStats(sym1[dates[3]:]).monthly_sharpe,
+        ffn.PerformanceStats(sym1[dates[3] :]).monthly_sharpe,
         9,
     )
     gs.set_date_range()
@@ -6264,16 +6207,12 @@ def test_resample_returns(df):
     assert np.abs((sample_mean - resampled_mean) / std_resampled_means) < 3
 
     np.random.seed(0)
-    returns = np.random.normal(
-        loc=0.06 / 12, scale=0.20 / np.sqrt(12), size=num_months * 3
-    ).reshape(num_months, 3)
+    returns = np.random.normal(loc=0.06 / 12, scale=0.20 / np.sqrt(12), size=num_months * 3).reshape(num_months, 3)
     returns = pd.DataFrame(returns)
 
     sample_mean = np.mean(returns, axis=0)
 
-    sample_stats = ffn.resample_returns(
-        returns, lambda x: np.mean(x, axis=0), seed=0, num_trials=100
-    )
+    sample_stats = ffn.resample_returns(returns, lambda x: np.mean(x, axis=0), seed=0, num_trials=100)
 
     resampled_mean = np.mean(sample_stats, axis=0)
     std_resampled_means = np.std(sample_stats, ddof=1, axis=0)
@@ -6284,9 +6223,7 @@ def test_resample_returns(df):
     returns = df.to_returns().dropna()
     sample_mean = np.mean(returns, axis=0)
 
-    sample_stats = ffn.resample_returns(
-        returns, lambda x: np.mean(x, axis=0), seed=0, num_trials=100
-    )
+    sample_stats = ffn.resample_returns(returns, lambda x: np.mean(x, axis=0), seed=0, num_trials=100)
 
     resampled_mean = np.mean(sample_stats, axis=0)
     std_resampled_means = np.std(sample_stats, ddof=1, axis=0)
@@ -6688,9 +6625,7 @@ def test_monthly_returns():
         140,
     ]
 
-    df1 = pd.DataFrame(
-        prices, index=pd.to_datetime(dates, format="%d/%m/%Y"), columns=["Price"]
-    )
+    df1 = pd.DataFrame(prices, index=pd.to_datetime(dates, format="%d/%m/%Y"), columns=["Price"])
 
     obj1 = ffn.PerformanceStats(df1["Price"])
 
@@ -6714,27 +6649,18 @@ def test_drawdown_details(df):
 
 
 def test_infer_nperiods():
-    daily = pd.DataFrame(np.random.randn(10),
-                         index=pd.date_range(start='2018-01-01', periods=10, freq='D'))
-    hourly = pd.DataFrame(np.random.randn(10),
-                          index=pd.date_range(start='2018-01-01', periods=10, freq='h'))
-    yearly = pd.DataFrame(np.random.randn(10),
-                          index=pd.date_range(start='2018-01-01', periods=10, freq=ffn.core._YearEnd))
-    monthly = pd.DataFrame(np.random.randn(10),
-                           index=pd.date_range(start='2018-01-01', periods=10, freq=ffn.core._MonthEnd))
-    minutely = pd.DataFrame(np.random.randn(10),
-                            index=pd.date_range(start='2018-01-01', periods=10, freq='min'))
-    secondly = pd.DataFrame(np.random.randn(10),
-                            index=pd.date_range(start='2018-01-01', periods=10, freq='s'))
+    daily = pd.DataFrame(np.random.randn(10), index=pd.date_range(start="2018-01-01", periods=10, freq="D"))
+    hourly = pd.DataFrame(np.random.randn(10), index=pd.date_range(start="2018-01-01", periods=10, freq="h"))
+    yearly = pd.DataFrame(np.random.randn(10), index=pd.date_range(start="2018-01-01", periods=10, freq=ffn.core._YearEnd))
+    monthly = pd.DataFrame(np.random.randn(10), index=pd.date_range(start="2018-01-01", periods=10, freq=ffn.core._MonthEnd))
+    minutely = pd.DataFrame(np.random.randn(10), index=pd.date_range(start="2018-01-01", periods=10, freq="min"))
+    secondly = pd.DataFrame(np.random.randn(10), index=pd.date_range(start="2018-01-01", periods=10, freq="s"))
 
-    minutely_30 = pd.DataFrame(np.random.randn(10),
-                               index=pd.date_range(start='2018-01-01', periods=10, freq='30min'))
+    minutely_30 = pd.DataFrame(np.random.randn(10), index=pd.date_range(start="2018-01-01", periods=10, freq="30min"))
 
-    not_known_vals = np.concatenate((pd.date_range(start='2018-01-01', periods=5, freq='1h').values,
-                                     pd.date_range(start='2018-01-02', periods=5, freq='5h').values))
+    not_known_vals = np.concatenate((pd.date_range(start="2018-01-01", periods=5, freq="1h").values, pd.date_range(start="2018-01-02", periods=5, freq="5h").values))
 
-    not_known = pd.DataFrame(np.random.randn(10),
-                             index=pd.DatetimeIndex(not_known_vals))
+    not_known = pd.DataFrame(np.random.randn(10), index=pd.DatetimeIndex(not_known_vals))
 
     assert ffn.core.infer_nperiods(daily) == ffn.core.TRADING_DAYS_PER_YEAR
     assert ffn.core.infer_nperiods(hourly) == ffn.core.TRADING_DAYS_PER_YEAR * 24
@@ -6758,20 +6684,16 @@ def test_infer_nperiods():
 def test_infer_nperiods_business_weekly_quarterly():
     # pandas infers "B", "W-SUN" and "QE-DEC" for these; each used to fall
     # through to None, which silently disabled annualization.
-    business = pd.DataFrame(np.random.randn(400),
-                            index=pd.bdate_range(start='2018-01-01', periods=400))
-    weekly = pd.DataFrame(np.random.randn(60),
-                          index=pd.date_range(start='2018-01-07', periods=60, freq='W'))
-    quarterly = pd.DataFrame(np.random.randn(20),
-                             index=pd.date_range(start='2018-03-31', periods=20, freq=pd.offsets.QuarterEnd()))
+    business = pd.DataFrame(np.random.randn(400), index=pd.bdate_range(start="2018-01-01", periods=400))
+    weekly = pd.DataFrame(np.random.randn(60), index=pd.date_range(start="2018-01-07", periods=60, freq="W"))
+    quarterly = pd.DataFrame(np.random.randn(20), index=pd.date_range(start="2018-03-31", periods=20, freq=pd.offsets.QuarterEnd()))
 
     assert ffn.core.infer_nperiods(business) == ffn.core.TRADING_DAYS_PER_YEAR
     assert ffn.core.infer_nperiods(weekly) == 52
     assert ffn.core.infer_nperiods(quarterly) == 4
 
     # Multipliers still divide, and an anchor does not break parsing.
-    biweekly = pd.DataFrame(np.random.randn(30),
-                            index=pd.date_range(start='2018-01-07', periods=30, freq='2W'))
+    biweekly = pd.DataFrame(np.random.randn(30), index=pd.date_range(start="2018-01-07", periods=30, freq="2W"))
     assert ffn.core.infer_nperiods(biweekly) == 26
 
 
@@ -6788,19 +6710,18 @@ def test_infer_nperiods_distinguishes_subsecond_aliases_from_month_start():
 def test_calc_sharpe_annualizes_business_daily():
     # A business-day price series is the ordinary case for equities, and its
     # Sharpe ratio must be scaled by sqrt(252) like a calendar-daily one.
-    index = pd.bdate_range(start='2018-01-01', periods=756)
+    index = pd.bdate_range(start="2018-01-01", periods=756)
     returns = pd.Series(np.random.randn(756) / 100, index=index)
 
     expected = returns.mean() / returns.std(ddof=1) * np.sqrt(ffn.core.TRADING_DAYS_PER_YEAR)
     assert np.allclose(returns.calc_sharpe(), expected)
 
     # Unannualized is unaffected by the frequency.
-    assert np.allclose(returns.calc_sharpe(annualize=False),
-                       returns.mean() / returns.std(ddof=1))
+    assert np.allclose(returns.calc_sharpe(annualize=False), returns.mean() / returns.std(ddof=1))
 
 
 def test_calc_sortino_annualizes_weekly():
-    index = pd.date_range(start='2018-01-07', periods=260, freq='W')
+    index = pd.date_range(start="2018-01-07", periods=260, freq="W")
     returns = pd.Series(np.random.randn(260) / 100, index=index)
 
     downside = np.sqrt((returns.clip(upper=0.0) ** 2).mean())
@@ -6820,3 +6741,271 @@ def test_plot_yearly_frequency():
     group = prices.to_frame().calc_stats()
     group.plot(freq="y")
     assert list(group._get_series("y").index.year) == [2020, 2021, 2022]
+
+
+# ---------------------------------------------------------------------------
+# VaR backtests (Kupiec, Christoffersen, Basel traffic light) and the
+# Maximum Undetectable Lie diagnostic.
+# ---------------------------------------------------------------------------
+
+import scipy.stats as _scipy_stats  # noqa: E402
+
+_CRIT_1 = _scipy_stats.chi2.ppf(0.95, 1)
+
+
+def _hits(nobs, positions):
+    h = np.zeros(nobs, dtype=bool)
+    h[list(positions)] = True
+    return h
+
+
+def _spaced_hits(nobs, count):
+    return _hits(nobs, np.linspace(0, nobs - 1, count).astype(int))
+
+
+def test_calc_var_exceptions():
+    ret = pd.Series([-0.03, -0.01, 0.02, -0.02])
+    var = pd.Series([0.02, 0.02, 0.02, 0.02])
+    # a loss equal to the VaR is not an exception
+    assert list(ffn.calc_var_exceptions(ret, var)) == [True, False, False, False]
+    # accessible as a Series method
+    assert list(ret.calc_var_exceptions(var)) == [True, False, False, False]
+    # a scalar var broadcasts
+    assert list(ffn.calc_var_exceptions(ret, 0.02)) == [True, False, False, False]
+
+
+class TestCalcKupiecPof:
+    # Kupiec (1995, J. Derivatives 3(2), Table 1), 95% nonrejection regions
+    # for a 99% VaR, as reproduced in the secondary literature:
+    #   T=255: N < 7,  T=510: 1 < N < 11,  T=1000: 4 < N < 17
+    @mark.parametrize("nobs,lower,upper", [(255, 1, 6), (510, 2, 10), (1000, 5, 16)])
+    def test_nonrejection_region(self, nobs, lower, upper):
+        accepted = [x for x in range(nobs + 1) if ffn.calc_kupiec_pof(_spaced_hits(nobs, x) if x else np.zeros(nobs), 0.01, full_output=True)["statistic"] <= _CRIT_1]
+        assert min(accepted) == lower
+        assert max(accepted) == upper
+        assert accepted == list(range(lower, upper + 1))
+
+    @mark.parametrize("count", [1, 3, 8, 20])
+    def test_statistic_binomial_logpmf(self, count):
+        nobs, prob = 250, 0.01
+        expected = -2 * (_scipy_stats.binom.logpmf(count, nobs, prob) - _scipy_stats.binom.logpmf(count, nobs, count / nobs))
+        res = ffn.calc_kupiec_pof(_spaced_hits(nobs, count), prob, full_output=True)
+        aae(res["statistic"], expected)
+        aae(res["pvalue"], _scipy_stats.chi2.sf(expected, 1), 10)
+
+    def test_zero_exceptions_closed_form(self):
+        res = ffn.calc_kupiec_pof(np.zeros(250), 0.01, full_output=True)
+        aae(res["statistic"], -2 * 250 * math.log(0.99))
+
+    def test_all_exceptions(self):
+        res = ffn.calc_kupiec_pof(np.ones(10), 0.1, full_output=True)
+        aae(res["statistic"], -2 * 10 * math.log(0.1))
+
+    def test_exact_calibration_is_zero(self):
+        res = ffn.calc_kupiec_pof(_spaced_hits(200, 2), 0.01, full_output=True)
+        aae(res["statistic"], 0.0, 10)
+
+    def test_input_validation(self):
+        with raises(ValueError, match="prob"):
+            ffn.calc_kupiec_pof(np.zeros(10), 0.0)
+        with raises(ValueError, match="non-empty"):
+            ffn.calc_kupiec_pof(np.zeros(0))
+        with raises(ValueError, match="boolean or contain only"):
+            ffn.calc_kupiec_pof(np.array([0.0, 0.5]))
+        # default output is the p-value alone
+        assert 0.0 <= ffn.calc_kupiec_pof(np.zeros(10)) <= 1.0
+
+
+class TestCalcChristoffersenIndependence:
+    def test_hand_computed(self):
+        # 20 observations, exceptions at positions 3, 4, 10
+        hits = _hits(20, [3, 4, 10])
+        # transitions between consecutive pairs (19 pairs):
+        # 0->0: 14, 0->1: 2 (into 3 and into 10), 1->0: 2 (out of 4, out of 10), 1->1: 1 (3->4)
+        n00, n01, n10, n11 = 14, 2, 2, 1
+        pi01 = n01 / (n00 + n01)
+        pi11 = n11 / (n10 + n11)
+        pi = (n01 + n11) / 19
+        ll_alt = n00 * math.log(1 - pi01) + n01 * math.log(pi01) + n10 * math.log(1 - pi11) + n11 * math.log(pi11)
+        ll_null = (n00 + n10) * math.log(1 - pi) + (n01 + n11) * math.log(pi)
+        expected = -2 * (ll_null - ll_alt)
+        res = ffn.calc_christoffersen_independence(hits, full_output=True)
+        aae(res["statistic"], expected)
+
+    def test_cc_is_sum(self):
+        hits = _hits(60, [5, 6, 7, 30, 31, 50])
+        ind = ffn.calc_christoffersen_independence(hits, full_output=True)["statistic"]
+        uc = ffn.calc_kupiec_pof(hits, 0.05, full_output=True)["statistic"]
+        cc = ffn.calc_christoffersen_conditional_coverage(hits, 0.05, full_output=True)
+        aae(cc["statistic"], uc + ind)
+        aae(cc["pvalue"], _scipy_stats.chi2.sf(uc + ind, 2))
+
+    def test_clustering_is_rejected_spacing_is_not(self):
+        nobs = 500
+        spaced = _spaced_hits(nobs, 5)
+        clustered = _hits(nobs, range(100, 105))
+        assert ffn.calc_christoffersen_independence(spaced, full_output=True)["statistic"] < _CRIT_1
+        assert ffn.calc_christoffersen_independence(clustered, full_output=True)["statistic"] > _CRIT_1
+        # same exception count, so Kupiec cannot tell them apart
+        aae(
+            ffn.calc_kupiec_pof(spaced, 0.01, full_output=True)["statistic"],
+            ffn.calc_kupiec_pof(clustered, 0.01, full_output=True)["statistic"],
+        )
+
+    def test_no_exceptions_is_zero(self):
+        assert ffn.calc_christoffersen_independence(np.zeros(100), full_output=True)["statistic"] == 0.0
+
+    def test_single_observation(self):
+        assert ffn.calc_christoffersen_independence(np.ones(1), full_output=True)["statistic"] == 0.0
+
+    def test_alternating_rejects(self):
+        hits = np.arange(100) % 2 == 0
+        assert ffn.calc_christoffersen_independence(hits, full_output=True)["statistic"] > _CRIT_1
+
+    def test_default_output_is_pvalue(self):
+        assert 0.0 <= ffn.calc_christoffersen_independence(np.zeros(100)) <= 1.0
+        assert 0.0 <= ffn.calc_christoffersen_conditional_coverage(np.zeros(100)) <= 1.0
+
+    def test_conditional_coverage_input_validation(self):
+        with raises(ValueError, match="prob"):
+            ffn.calc_christoffersen_conditional_coverage(np.zeros(10), prob=1.0)
+
+
+class TestCalcBaselTrafficLight:
+    # Basel Committee (1996), Table 2: cumulative probability of at most x
+    # exceptions in 250 observations at 99% coverage.
+    BASEL = {0: 8.11, 1: 28.58, 2: 54.32, 3: 75.81, 4: 89.22, 5: 95.88, 6: 98.63, 7: 99.60, 8: 99.89, 9: 99.97, 10: 99.99}
+
+    @mark.parametrize("count", list(range(11)))
+    def test_table_2(self, count):
+        res = ffn.calc_basel_traffic_light(_spaced_hits(250, count) if count else np.zeros(250))
+        aae(100 * res["cumulative_probability"], self.BASEL[count], 2)
+        expected = "green" if count <= 4 else "yellow" if count <= 9 else "red"
+        assert res["zone"] == expected
+        assert res["exceptions"] == count
+        assert res["nobs"] == 250
+
+    def test_only_last_window_used(self):
+        hits = np.concatenate([np.ones(30, dtype=bool), np.zeros(250, dtype=bool)])
+        assert ffn.calc_basel_traffic_light(hits)["zone"] == "green"
+        assert ffn.calc_basel_traffic_light(hits, window=None)["zone"] == "red"
+
+    def test_invalid_window(self):
+        with raises(ValueError, match="window"):
+            ffn.calc_basel_traffic_light(np.zeros(10), window=0)
+
+    def test_invalid_prob(self):
+        with raises(ValueError, match="prob"):
+            ffn.calc_basel_traffic_light(np.zeros(10), prob=0.0)
+
+
+@fixture(scope="module")
+def mul_sim():
+    rng = np.random.default_rng(20261028)
+    nobs = 750
+    sigma = np.exp(0.3 * rng.standard_normal(nobs))  # varying volatility
+    ret = sigma * rng.standard_normal(nobs) * 0.01
+    var = -_scipy_stats.norm.ppf(0.01) * sigma * 0.01  # true 99% VaR
+    return ret, var
+
+
+class TestCalcMaxUndetectableVarUnderstatement:
+    def test_passes_and_fails_around_limit(self, mul_sim):
+        ret, var = mul_sim
+        res = ffn.calc_max_undetectable_var_understatement(ret, var, full_output=True)
+        assert res["baseline_passes"]
+        assert 0.0 <= res["shrink"] <= 1.0
+        assert res["exceptions_at_limit"] >= res["exceptions_reported"]
+        np.testing.assert_allclose(res["var_at_limit"], (1 - res["shrink"]) * var)
+        aae(res["mean_understatement"], res["shrink"] * var.mean())
+
+    def test_brute_force_grid(self, mul_sim):
+        ret, var = mul_sim
+        res = ffn.calc_max_undetectable_var_understatement(ret, var, full_output=True)
+
+        # independent check on a fine grid using the public tests only
+        def passes(s):
+            h = ffn.calc_var_exceptions(ret, (1 - s) * var)
+            ok = ffn.calc_christoffersen_independence(h, full_output=True)["statistic"] <= _CRIT_1
+            ok &= ffn.calc_basel_traffic_light(h)["zone"] == "green"
+            cc = ffn.calc_kupiec_pof(h, full_output=True)["statistic"] + ffn.calc_christoffersen_independence(h, full_output=True)["statistic"]
+            ok &= cc <= _scipy_stats.chi2.ppf(0.95, 2) or h.mean() < 0.01
+            ok &= ffn.calc_kupiec_pof(h, full_output=True)["statistic"] <= _CRIT_1 or h.mean() < 0.01
+            return bool(ok)
+
+        grid = np.linspace(0, 1, 2001)
+        best = max(s for s in grid if passes(s))
+        # exact limit is at or above the best grid point and within one cell
+        assert res["shrink"] >= best - 1e-12
+        assert res["shrink"] - best <= grid[1] - grid[0]
+        assert passes(res["shrink"] * (1 - 1e-9))
+
+    def test_just_beyond_limit_fails(self, mul_sim):
+        ret, var = mul_sim
+        res = ffn.calc_max_undetectable_var_understatement(ret, var, full_output=True)
+        assert res["binding"]
+        beyond = ffn.calc_var_exceptions(ret, (1 - res["shrink"] - 1e-6) * var)
+        assert beyond.sum() > res["exceptions_at_limit"]
+
+    def test_more_tests_never_increase_limit(self, mul_sim):
+        ret, var = mul_sim
+        only_kupiec = ffn.calc_max_undetectable_var_understatement(ret, var, tests=["kupiec"])
+        all_tests = ffn.calc_max_undetectable_var_understatement(ret, var)
+        assert all_tests <= only_kupiec + 1e-12
+
+    def test_stricter_size_never_increases_limit(self, mul_sim):
+        ret, var = mul_sim
+        loose = ffn.calc_max_undetectable_var_understatement(ret, var, size=0.01)
+        strict = ffn.calc_max_undetectable_var_understatement(ret, var, size=0.20)
+        assert strict <= loose + 1e-12
+
+    def test_traffic_light_only_counts(self):
+        # 250 observations, no exceptions reported, losses just below VaR
+        nobs = 250
+        var = np.ones(nobs)
+        ret = -0.5 * np.ones(nobs) * (1 + np.arange(nobs) / nobs)  # ratios in (0.5, 1)
+        res = ffn.calc_max_undetectable_var_understatement(ret, var, tests=["traffic_light"], full_output=True)
+        # green allows 4 exceptions: the 5th largest ratio sets the limit
+        ratios = np.sort(-ret / var)[::-1]
+        aae(res["shrink"], 1 - ratios[4])
+        assert res["exceptions_at_limit"] == 4
+        assert res["binding"] == ("traffic_light",)
+
+    def test_never_losing_series_can_be_understated_fully(self):
+        res = ffn.calc_max_undetectable_var_understatement(np.full(300, 0.001), np.ones(300), full_output=True)
+        aae(res["shrink"], 1.0)
+        assert res["exceptions_at_limit"] == 0
+        assert res["binding"] == ()
+
+    def test_two_sided_baseline_failure(self):
+        ret = np.full(250, 0.001)
+        var = np.ones(250)
+        res = ffn.calc_max_undetectable_var_understatement(ret, var, ignore_too_few=False, full_output=True)
+        assert not res["baseline_passes"]
+        assert "kupiec" in res["failed_at_baseline"]
+        assert math.isnan(res["shrink"])
+
+    def test_overstated_reported_var_fails_baseline(self, mul_sim):
+        ret, var = mul_sim
+        res = ffn.calc_max_undetectable_var_understatement(ret, 0.4 * var, full_output=True)
+        assert not res["baseline_passes"]
+        assert math.isnan(res["shrink"])
+
+    def test_accessible_as_series_method(self, mul_sim):
+        ret, var = mul_sim
+        direct = ffn.calc_max_undetectable_var_understatement(ret, var)
+        via_method = pd.Series(ret).calc_max_undetectable_var_understatement(pd.Series(var))
+        aae(direct, via_method)
+
+    def test_input_validation(self, mul_sim):
+        ret, var = mul_sim
+        with raises(ValueError, match="strictly positive"):
+            ffn.calc_max_undetectable_var_understatement(ret, np.zeros_like(var))
+        with raises(ValueError, match="subset"):
+            ffn.calc_max_undetectable_var_understatement(ret, var, tests=["nope"])
+        with raises(ValueError, match="same length"):
+            ffn.calc_max_undetectable_var_understatement(ret, var[:-1])
+        with raises(ValueError, match="size"):
+            ffn.calc_max_undetectable_var_understatement(ret, var, size=1.5)
+        with raises(ValueError, match="prob"):
+            ffn.calc_max_undetectable_var_understatement(ret, var, prob=1.0)
